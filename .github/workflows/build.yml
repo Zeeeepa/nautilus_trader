@@ -357,19 +357,38 @@ jobs:
           echo "Test directory exists:"
           ls -la tests/ | head -10 || echo "tests directory not found"
 
-      - name: Run single test file first
+      - name: Test pytest invocation methods
         shell: bash
         run: |
-          echo "Running a single test file to verify pytest works..."
-          # Run a simple config test first
-          echo "Running tests/unit_tests/config/test_common.py"
-          uv run --no-sync python -m pytest tests/unit_tests/config/test_common.py -v --tb=short || echo "Single test failed with error code $?"
+          echo "Testing different pytest invocation methods..."
+          echo ""
+          echo "Method 1: uv run pytest directly"
+          uv run --no-sync pytest --version || echo "Failed with code $?"
+          echo ""
+          echo "Method 2: uv run python -m pytest"
+          uv run --no-sync python -m pytest --version || echo "Failed with code $?"
+          echo ""
+          echo "Method 3: Direct python with full path"
+          python -m pytest --version || echo "Failed with code $?"
+          echo ""
+          echo "Method 4: Check if pytest is in Scripts directory"
+          ls -la C:/hostedtoolcache/windows/Python/*/x64/Scripts/pytest* 2>/dev/null || echo "No pytest in Scripts"
+          echo ""
+          echo "Method 5: Use cmd.exe to run pytest"
+          cmd.exe /c "uv run --no-sync pytest --version" || echo "Failed with code $?"
+
+      - name: Run single test file first
+        shell: cmd
+        run: |
+          echo Running a single test file to verify pytest works...
+          echo Running tests/unit_tests/config/test_common.py
+          uv run --no-sync pytest tests/unit_tests/config/test_common.py -v --tb=short
 
       - name: Run tests
-        shell: bash
+        shell: cmd
         run: |
-          echo "Running full test suite..."
-          uv run --no-sync python -m pytest --ignore=tests/performance_tests -v
+          echo Running full test suite...
+          uv run --no-sync pytest --ignore=tests/performance_tests -v
 
       # - name: Upload wheel artifact
       #   uses: ./.github/actions/upload-artifact-wheel
