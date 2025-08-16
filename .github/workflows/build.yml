@@ -308,15 +308,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           free-disk-space: "true"
 
-      - name: Install OpenSSL (Windows)
-        shell: pwsh
-        run: |
-          choco install openssl.light --no-progress -y
-          # Set environment so openssl-sys can find headers and libs
-          echo "OPENSSL_DIR=C:\\Program Files\\OpenSSL-Win64" >> $env:GITHUB_ENV
-          echo "OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL-Win64\\lib" >> $env:GITHUB_ENV
-          echo "OPENSSL_INCLUDE_DIR=C:\\Program Files\\OpenSSL-Win64\\include" >> $env:GITHUB_ENV
-
       - name: Build and install wheel
         uses: ./.github/actions/common-wheel-build
         with:
@@ -329,12 +320,56 @@ jobs:
       - name: Install test dependencies
         shell: bash
         run: |
+          echo "Installing test dependencies..."
           # Avoid GNU make on Windows; call uv directly
           uv sync --active --all-groups --all-extras --no-install-package nautilus_trader
 
-      - name: Run tests
+      - name: Debug - Check Python and pytest availability
+        shell: bash
         run: |
-          uv run --no-sync pytest --ignore=tests/performance_tests
+          echo "=== Debug Information ==="
+          echo "Python location:"
+          which python || echo "python not found in PATH"
+          python --version || echo "python command failed"
+
+          echo ""
+          echo "Python3 location:"
+          which python3 || echo "python3 not found in PATH"
+          python3 --version || echo "python3 command failed"
+
+          echo ""
+          echo "UV Python location:"
+          uv python find || echo "uv python find failed"
+
+          echo ""
+          echo "Checking pytest installation:"
+          uv run python -c "import pytest; print(f'pytest version: {pytest.__version__}')" || echo "pytest import failed"
+
+          echo ""
+          echo "UV pip list (first 20 lines):"
+          uv pip list | head -20 || echo "uv pip list failed"
+
+          echo ""
+          echo "Current directory:"
+          pwd
+
+          echo ""
+          echo "Test directory exists:"
+          ls -la tests/ | head -10 || echo "tests directory not found"
+
+      - name: Run single test file first
+        shell: bash
+        run: |
+          echo "Running a single test file to verify pytest works..."
+          # Run a simple config test first
+          echo "Running tests/unit_tests/config/test_common.py"
+          uv run --no-sync python -m pytest tests/unit_tests/config/test_common.py -v --tb=short || echo "Single test failed with error code $?"
+
+      - name: Run tests
+        shell: bash
+        run: |
+          echo "Running full test suite..."
+          uv run --no-sync python -m pytest --ignore=tests/performance_tests -v
 
       # - name: Upload wheel artifact
       #   uses: ./.github/actions/upload-artifact-wheel
