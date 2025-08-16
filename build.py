@@ -353,6 +353,10 @@ def _get_nautilus_version() -> str:
 
 
 def _get_clang_version() -> str:
+    # Windows builds use MSVC, so clang is not required
+    if IS_WINDOWS:
+        return "N/A (Windows uses MSVC)"
+
     try:
         result = subprocess.run(
             ["clang", "--version"],  # noqa
