@@ -357,77 +357,101 @@ jobs:
           echo "Test directory exists:"
           ls -la tests/ | head -10 || echo "tests directory not found"
 
-      - name: Test basic Python and package import
+      - name: Test Python without uv first
         shell: bash
         run: |
-          echo "=== Testing basic Python functionality ==="
+          echo "=== Testing Python WITHOUT uv first ==="
           echo ""
-          echo "1. Python version:"
+          echo "1. Direct Python version:"
           python --version
           echo ""
-          echo "2. Test if we can import nautilus_trader:"
-          uv run --no-sync python -c "import nautilus_trader; print('nautilus_trader imported successfully')" || echo "Failed to import nautilus_trader with code $?"
+          echo "2. Find where nautilus_trader wheel was installed:"
+          find . -name "nautilus_trader*.whl" -type f 2>/dev/null | head -5 || echo "No wheel found"
           echo ""
-          echo "3. Test if we can import pytest:"
-          uv run --no-sync python -c "import pytest; print(f'pytest {pytest.__version__} imported successfully')" || echo "Failed to import pytest with code $?"
+          echo "3. Check if we can activate the uv venv manually:"
+          if [ -d ".venv" ]; then
+            echo "Found .venv directory"
+            if [ -f ".venv/Scripts/activate" ]; then
+              echo "Activating venv (Windows style)..."
+              source .venv/Scripts/activate || echo "Failed to activate"
+              echo "Python after activation: $(which python)"
+              python --version
+              echo "Testing import in activated venv:"
+              python -c "import sys; print(f'sys.executable: {sys.executable}')" || echo "Failed"
+              python -c "import nautilus_trader; print('SUCCESS: imported nautilus_trader')" || echo "Failed to import with code $?"
+            fi
+          else
+            echo "No .venv directory found"
+          fi
           echo ""
-          echo "4. List installed packages in uv environment:"
-          uv pip list | grep -E "nautilus-trader|pytest" || echo "Failed to list packages"
+          echo "4. Check uv environment location:"
+          uv python find
           echo ""
-          echo "5. Check Python executable being used:"
-          uv run --no-sync python -c "import sys; print(f'Python exe: {sys.executable}')"
-          echo ""
-          echo "6. Try running a minimal test without pytest:"
-          uv run --no-sync python -c "from nautilus_trader.config import TradingNodeConfig; print('Config import successful')" || echo "Failed with code $?"
+          echo "5. Try importing with timeout to prevent hang:"
+          timeout 10 uv run --no-sync python -c "print('Testing uv run...')" || echo "uv run failed or timed out with code $?"
 
-      - name: Run minimal Python test
-        shell: bash
-        run: |
-          echo "Creating and running a minimal test script..."
-          cat > test_minimal.py << 'EOF'
-          import sys
-          print(f"Python version: {sys.version}")
-          print(f"Python executable: {sys.executable}")
-
-          try:
-              import nautilus_trader
-              print("SUCCESS: nautilus_trader imported")
-          except Exception as e:
-              print(f"FAILED to import nautilus_trader: {e}")
-              sys.exit(1)
-
-          try:
-              from nautilus_trader.config import TradingNodeConfig
-              print("SUCCESS: TradingNodeConfig imported")
-          except Exception as e:
-              print(f"FAILED to import TradingNodeConfig: {e}")
-              sys.exit(2)
-
-          print("All imports successful!")
-          EOF
-
-          echo "Running minimal test with uv..."
-          uv run --no-sync python test_minimal.py || echo "Minimal test failed with code $?"
-
-      - name: Try pytest with simpler approach
+      - name: Test import step by step
         shell: bash
         continue-on-error: true
         run: |
-          echo "Attempting to run pytest with various approaches..."
+          echo "=== Testing imports step by step ==="
           echo ""
-          echo "Approach 1: Direct pytest call in uv environment"
-          uv run --no-sync python -c "import subprocess; result = subprocess.run(['python', '-m', 'pytest', '--version'], capture_output=True, text=True); print(result.stdout); print(result.stderr); print(f'Return code: {result.returncode}')"
+          echo "Test 1: Simple print with uv"
+          timeout 5 uv run --no-sync python -c "print('Hello from Python')" || echo "Failed with code $?"
           echo ""
-          echo "Approach 2: Find and run a simple test"
-          uv run --no-sync python -c "import os; print('Current dir:', os.getcwd()); print('Test files exist:', os.path.exists('tests/unit_tests/config/test_common.py'))"
+          echo "Test 2: Import sys"
+          timeout 5 uv run --no-sync python -c "import sys; print(f'Python: {sys.version}')" || echo "Failed with code $?"
+          echo ""
+          echo "Test 3: Import a standard library"
+          timeout 5 uv run --no-sync python -c "import json; print('json imported')" || echo "Failed with code $?"
+          echo ""
+          echo "Test 4: Import numpy (C extension)"
+          timeout 5 uv run --no-sync python -c "import numpy; print(f'numpy {numpy.__version__} imported')" || echo "Failed with code $?"
+          echo ""
+          echo "Test 5: Import pytest"
+          timeout 5 uv run --no-sync python -c "import pytest; print(f'pytest {pytest.__version__} imported')" || echo "Failed with code $?"
+          echo ""
+          echo "Test 6: Import nautilus_trader (may crash here)"
+          timeout 5 uv run --no-sync python -c "import nautilus_trader; print('nautilus_trader imported')" || echo "Failed with code $?"
 
-      - name: Run tests with safety measures
+      - name: Try direct wheel installation
         shell: bash
         continue-on-error: true
         run: |
-          echo "Attempting to run tests with safety measures..."
-          # Try to run with timeout to prevent hanging
-          timeout 60 uv run --no-sync python -m pytest tests/unit_tests/config/test_common.py -v --tb=short -x || echo "Test run failed or timed out with code $?"
+          echo "=== Testing direct wheel installation ==="
+          echo ""
+          echo "1. Find the built wheel:"
+          WHEEL_FILE=$(find dist -name "nautilus_trader*.whl" -type f | head -1)
+          echo "Found wheel: $WHEEL_FILE"
+          echo ""
+          echo "2. Install wheel directly with pip:"
+          python -m pip install "$WHEEL_FILE" --force-reinstall || echo "Direct pip install failed with code $?"
+          echo ""
+          echo "3. Test import after direct installation:"
+          python -c "import nautilus_trader; print('SUCCESS: Direct wheel install works')" || echo "Direct import failed with code $?"
+          echo ""
+          echo "4. Test running pytest directly (not through uv):"
+          python -m pip install pytest==7.4.4
+          python -m pytest --version || echo "Direct pytest failed with code $?"
+          echo ""
+          echo "5. Try running a single test directly:"
+          timeout 30 python -m pytest tests/unit_tests/config/test_common.py -v -x || echo "Direct test run failed with code $?"
+
+      - name: Debug if uv is the problem
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "=== Testing if uv itself is causing issues ==="
+          echo ""
+          echo "1. Test uv run with simple command:"
+          timeout 5 uv run --no-sync python --version || echo "uv run python --version failed with code $?"
+          echo ""
+          echo "2. Test uv run with echo:"
+          timeout 5 uv run --no-sync echo "Hello World" || echo "uv run echo failed with code $?"
+          echo ""
+          echo "3. Compare uv python vs system python:"
+          echo "System Python: $(python --version)"
+          echo "UV Python: $(timeout 5 uv run --no-sync python --version 2>&1 || echo 'UV Python failed')"
 
       # - name: Upload wheel artifact
       #   uses: ./.github/actions/upload-artifact-wheel
