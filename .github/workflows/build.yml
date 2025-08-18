@@ -317,12 +317,6 @@ jobs:
       - name: Cached test data
         uses: ./.github/actions/common-test-data
 
-      - name: Install test dependencies
-        run: |
-          echo "Installing test dependencies..."
-          # Use uv to install dependencies (includes all test deps)
-          uv sync --active --all-groups --all-extras
-
       - name: Run tests
         run: |
           uv run --no-sync python -m pytest --ignore=tests/performance_tests
