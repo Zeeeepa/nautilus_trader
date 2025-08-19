@@ -320,6 +320,37 @@ jobs:
       # - name: Install test dependencies
       #   run: make install-just-deps
 
+      - name: Debug environment
+        run: |
+          echo "=== PATH ==="
+          echo $PATH
+          echo ""
+          echo "=== Python locations ==="
+          which python || echo "python not found in PATH"
+          which python3 || echo "python3 not found in PATH"
+          echo ""
+          echo "=== UV Python ==="
+          uv python find || echo "uv python find failed"
+          uv python dir
+          uv run --no-sync which python || echo "python not found in uv run"
+          echo ""
+          echo "=== Check .venv directory ==="
+          ls -alh .venv/Scripts/ || echo ".venv/Scripts not found"
+          echo ""
+          echo "=== Pytest availability ==="
+          uv run --no-sync python -c "import sys; print(f'Python: {sys.executable}')" || echo "Failed to run python"
+          uv run --no-sync python -c "import pytest; print(f'pytest found at {pytest.__file__}')" || echo "pytest import failed"
+          uv run --no-sync python -m pytest --version || echo "pytest module failed"
+          echo ""
+          echo "=== UV pip list (pytest related) ==="
+          uv pip list | grep -i pytest || echo "No pytest packages found"
+          echo ""
+          echo "=== Direct venv execution ==="
+          .venv/Scripts/python.exe --version || echo ".venv python not found"
+          .venv/Scripts/python.exe -m pytest --version || echo ".venv pytest failed"
+          # uv run which python
+          # uv run which pytest
+
       - name: Run tests
         run: |
           uv run --no-sync python -m pytest --ignore=tests/performance_tests
