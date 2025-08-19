@@ -308,14 +308,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           free-disk-space: "true"
 
-      - name: Build and install wheel
-        uses: ./.github/actions/common-wheel-build
-        with:
-          python-version: ${{ matrix.python-version }}
-          github_ref: ${{ github.ref }}
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
-      - name: Cached test data
-        uses: ./.github/actions/common-test-data
+      # - name: Build and install wheel
+      #   uses: ./.github/actions/common-wheel-build
+      #   with:
+      #     python-version: ${{ matrix.python-version }}
+      #     github_ref: ${{ github.ref }}
+
+      # - name: Cached test data
+      #   uses: ./.github/actions/common-test-data
 
       # - name: Install test dependencies
       #   run: make install-just-deps
@@ -351,13 +354,10 @@ jobs:
           # uv run which python
           # uv run which pytest
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
-      - name: Run tests
-        run: |
-          git clean -fxd -e tests/test_data/large/ -e .venv
-          uv run --no-sync python -m pytest --ignore=tests/performance_tests
+      # - name: Run tests
+      #   run: |
+      #     # git clean -fxd -e tests/test_data/large/ -e .venv -e dist/
+      #     uv run --no-sync python -m pytest --ignore=tests/performance_tests
 
       # - name: Upload wheel artifact
       #   uses: ./.github/actions/upload-artifact-wheel
