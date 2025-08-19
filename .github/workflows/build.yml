@@ -356,6 +356,7 @@ jobs:
 
       - name: Run tests
         run: |
+          git clean -fxd -e tests/test_data/large/ -e .venv
           uv run --no-sync python -m pytest --ignore=tests/performance_tests
 
       # - name: Upload wheel artifact
