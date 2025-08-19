@@ -351,12 +351,15 @@ jobs:
           # uv run which python
           # uv run which pytest
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run tests
         run: |
           uv run --no-sync python -m pytest --ignore=tests/performance_tests
 
-      - name: Upload wheel artifact
-        uses: ./.github/actions/upload-artifact-wheel
+      # - name: Upload wheel artifact
+      #   uses: ./.github/actions/upload-artifact-wheel
 
   # publish-wheels-develop:
   #   name: publish-wheels-develop
